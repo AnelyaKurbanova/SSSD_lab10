@@ -12,13 +12,14 @@ function getConfigFromEnv() {
     port: Number(process.env.DB_PORT || 5432),
     database: process.env.DB_NAME || "labdb",
     user: process.env.DB_USER || "labuser",
-    password: process.env.DB_PASSWORD, 
+    password: process.env.DB_PASSWORD,
   };
 }
 
 function getConfigFromFile() {
   const file = fs.readFileSync("db_secrets.yaml", "utf8");
   const data = yaml.load(file);
+
   return {
     host: data.db.host,
     port: Number(data.db.port),
@@ -31,11 +32,12 @@ function getConfigFromFile() {
 async function getConfigFromVault() {
   const vault = vaultFactory({
     endpoint: process.env.VAULT_ADDR || "http://127.0.0.1:8200",
-    token: process.env.VAULT_TOKEN,
+    token: process.env.VAULT_TOKEN, 
   });
 
-  const res = await vault.read("secret/data/app/db"); 
+  const res = await vault.read("secret/data/app/db");
   const d = res.data.data;
+
   return {
     host: d.host,
     port: Number(d.port),
@@ -49,14 +51,18 @@ async function main() {
   console.log("SECRET_MODE =", MODE);
 
   let cfg;
+
   if (MODE === "env") {
     cfg = getConfigFromEnv();
   } else if (MODE === "file") {
     cfg = getConfigFromFile();
   } else if (MODE === "vault") {
+    if (!process.env.VAULT_TOKEN) {
+      throw new Error("VAULT_TOKEN is not set in environment");
+    }
     cfg = await getConfigFromVault();
   } else {
-    throw new Error("Unknown SECRET_MODE");
+    throw new Error("Unknown SECRET_MODE: " + MODE);
   }
 
   console.log("DB config (without password) =", {
@@ -68,10 +74,11 @@ async function main() {
 
   const client = new Client(cfg);
   await client.connect();
+
   const result = await client.query("SELECT 1");
   console.log("DB SELECT 1 result:", result.rows[0]);
-  await client.end();
 
+  await client.end();
   console.log("OK: DB connection successful");
 }
 
